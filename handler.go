@@ -1,6 +1,7 @@
 package observer
 
 import (
+	"fmt"
 	"reflect"
 	"sync"
 )
@@ -11,11 +12,11 @@ type handler struct {
 	callback reflect.Value
 }
 
-func newHandler(t reflect.Type, observer interface{}, function string) *handler {
+func newHandler(t reflect.Type, observer interface{}, callback reflect.Value) *handler {
 	return &handler{
 		t:        t,
 		observer: observer,
-		callback: reflect.ValueOf(observer).MethodByName(function),
+		callback: callback,
 	}
 }
 
@@ -37,15 +38,19 @@ type syncHandler struct {
 	m      map[string]handlers
 }
 
-func (s *syncHandler) Append(topic string, h *handler) {
+func (s *syncHandler) Append(topic string, sameCheck bool, h *handler) {
 	s.rwlock.Lock()
 	defer s.rwlock.Unlock()
 
-	for _, v := range s.m[topic][:] {
-		if v.Same(h) {
-			return
+	if sameCheck {
+		for _, v := range s.m[topic][:] {
+			if v.Same(h) {
+				fmt.Println(v.t.String(), h.t.String())
+				return
+			}
 		}
 	}
+
 	s.m[topic] = append(s.m[topic], h)
 }
 

@@ -13,7 +13,7 @@ const (
 type Observer interface {
 	Subscriber
 	Publisher
-	Close()
+	Wait()
 }
 
 // Subscriber 订阅者
@@ -47,7 +47,21 @@ type Subscriber interface {
 
 // Publisher 发布者
 type Publisher interface {
+	// 异步推送
 	Publish(topic string, args ...interface{})
+
+	// 异步推送,监听返回值
+	//
+	// @params: retfc 其参数类型和顺序与消费者保持一致, 如没有返回值可为空
+	PublishWithRet(topic string, retfc interface{}, args ...interface{})
+
+	// 同步推送
+	SyncPublish(topic string, args ...interface{})
+
+	// 同步推送,监听返回值
+	//
+	// @params: retfc 其参数类型和顺序与消费者保持一致, 如没有返回值可为空
+	SyncPublishWithRet(topic string, retfc interface{}, args ...interface{})
 }
 
 // Topic 主题名
@@ -94,6 +108,27 @@ func (o *observer) SubscribeByTopicFunc(topic string, fc interface{}) {
 }
 
 func (o *observer) Publish(topic string, args ...interface{}) {
+	o.publish(false, topic, nil, args...)
+}
+
+func (o *observer) PublishWithRet(topic string, retfc interface{}, args ...interface{}) {
+	o.publish(false, topic, retfc, args...)
+}
+
+func (o *observer) SyncPublish(topic string, args ...interface{}) {
+	o.publish(false, topic, nil, args...)
+}
+
+func (o *observer) SyncPublishWithRet(topic string, retfc interface{}, args ...interface{}) {
+	o.publish(true, topic, retfc, args...)
+}
+
+func (o *observer) publish(sync bool, topic string, retfc interface{}, args ...interface{}) {
+	fc := reflect.Zero(reflect.TypeOf(0))
+	if retfc != nil {
+		_, fc = checkFunc(retfc)
+	}
+
 	handlers := o.handler.Get(topic)
 	params := []reflect.Value{}
 
@@ -102,18 +137,26 @@ func (o *observer) Publish(topic string, args ...interface{}) {
 	}
 
 	for _, handler := range handlers {
-		o.onNotice(handler, params)
+		o.onNotice(sync, handler, fc, params)
 	}
 }
 
-func (o *observer) onNotice(handler *handler, params []reflect.Value) {
-	o.wait.Add(1)
-	go func() {
+func (o *observer) onNotice(sync bool, handler *handler, fc reflect.Value, params []reflect.Value) {
+	h := func() {
 		defer o.wait.Done()
-		handler.Call(params...)
-	}()
+		ret := handler.Call(params...)
+		if !fc.IsZero() {
+			fc.Call(ret)
+		}
+	}
+	o.wait.Add(1)
+	if sync {
+		h()
+		return
+	}
+	go h()
 }
 
-func (o *observer) Close() {
+func (o *observer) Wait() {
 	o.wait.Wait()
 }

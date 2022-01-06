@@ -27,8 +27,8 @@ func (h *handler) Same(b *handler) bool {
 	return false
 }
 
-func (h *handler) Call(params ...reflect.Value) {
-	h.callback.Call(params)
+func (h *handler) Call(params ...reflect.Value) []reflect.Value {
+	return h.callback.Call(params)
 }
 
 type handlers []*handler

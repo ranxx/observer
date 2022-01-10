@@ -9,9 +9,13 @@ import (
 // topic, notify, close
 type my struct {
 	event string `topic:"xxx" notice:"Sayy"`
+	name  string `json:"name"`
 }
 
 func (m *my) Sayy(name string, age int) {
+	if len(name) == 0 {
+		name = m.name
+	}
 	fmt.Printf("name:%s age:%d\n", name, age)
 }
 
@@ -30,9 +34,11 @@ func TestSubscribe(t *testing.T) {
 
 func TestUnsubscribe(t *testing.T) {
 	obs := NewObserver()
-	obs.Subscribe(&my{})
-	obs.Unsubscribe(&my{})
-	obs.Publish("xxx", "Axing", 1000)
+	cancel := obs.Subscribe(&my{name: "小明"})
+	_ = obs.Subscribe(&my{name: "小红"})
+	_ = obs.Subscribe(&my{name: "小刚"})
+	cancel()
+	obs.Publish("xxx", "", 1000)
 	obs.Wait()
 }
 

@@ -1,7 +1,6 @@
 package observer
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 )
@@ -44,8 +43,7 @@ func (s *syncHandler) Append(topic string, sameCheck bool, h *handler) {
 
 	if sameCheck {
 		for _, v := range s.m[topic][:] {
-			if v.Same(h) {
-				fmt.Println(v.t.String(), h.t.String())
+			if v == h {
 				return
 			}
 		}
@@ -69,7 +67,7 @@ func (s *syncHandler) Del(topic string, h *handler) {
 
 	handlers := s.m[topic]
 	for i, v := range handlers[:] {
-		if !v.Same(h) {
+		if v != h {
 			continue
 		}
 		// 0，1，2，3

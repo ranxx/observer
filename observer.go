@@ -36,13 +36,17 @@ func(p*person) Say() {
 */
 type Subscriber interface {
 	// 订阅, 去重
-	Subscribe(observer interface{})
+	//
+	// 返回的func是为 取消订阅
+	Subscribe(observer interface{}) func()
 
-	// 取消订阅
-	Unsubscribe(observer interface{})
+	// // 取消订阅
+	// Unsubscribe(observer interface{})
 
-	// 订阅 topic 函数, 不去重, 无法取消订阅
-	SubscribeByTopicFunc(topic string, fc interface{})
+	// 订阅 topic 函数, 不去重
+	//
+	// 返回的func是为 取消订阅
+	SubscribeByTopicFunc(topic string, fc interface{}) func()
 }
 
 // Publisher 发布者
@@ -89,10 +93,15 @@ func NewObserver() Observer {
 	}
 }
 
-func (o *observer) Subscribe(observer interface{}) {
+func (o *observer) Subscribe(observer interface{}) func() {
 	t, topic, fc := checkObserver(observer, event)
 
-	o.handler.Append(topic, true, newHandler(t, observer, fc))
+	h := newHandler(t, observer, fc)
+
+	o.handler.Append(topic, true, h)
+	return func() {
+		o.handler.Del(topic, h)
+	}
 }
 
 func (o *observer) Unsubscribe(observer interface{}) {
@@ -101,10 +110,15 @@ func (o *observer) Unsubscribe(observer interface{}) {
 	o.handler.Del(topic, newHandler(t, observer, fc))
 }
 
-func (o *observer) SubscribeByTopicFunc(topic string, fc interface{}) {
+func (o *observer) SubscribeByTopicFunc(topic string, fc interface{}) func() {
 	t, v := checkFunc(fc)
 
-	o.handler.Append(topic, false, newHandler(t, fc, v))
+	h := newHandler(t, fc, v)
+
+	o.handler.Append(topic, false, h)
+	return func() {
+		o.handler.Del(topic, h)
+	}
 }
 
 func (o *observer) Publish(topic string, args ...interface{}) {

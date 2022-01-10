@@ -40,7 +40,7 @@ func main() {
 	obs.SyncPublish("func_arg_slice", "axing", 1, 2, 3, 4, 5)
 	obs.SyncPublishWithRet("func_arg_slice",func(){
 		fmt.Println("阿星 执行完毕")
-	}  "阿星", 1, 2, 3, 4, 5)
+	}, "阿星", 1, 2, 3, 4, 5)
 }
 ```
 
@@ -56,7 +56,7 @@ import (
 
 type person struct {
 	event string `topic:"pain" notice:"Say"`
-	name string `json:"name"`
+	name  string `json:"name"`
 }
 
 func (p *person) Say() {

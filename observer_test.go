@@ -162,3 +162,11 @@ func TestFuncSlice(t *testing.T) {
 	obs.Publish("func_arg_slice", "axing", 1, 2, 3, 4, 5)
 	obs.Wait()
 }
+
+func TestStruct(t *testing.T) {
+	obs := NewObserver()
+	obs.Subscribe(struct {
+		event string `topic:"topic"`
+	}{})
+	obs.Wait()
+}

@@ -153,3 +153,12 @@ func TestSyncPublishWithRet(t *testing.T) {
 		fmt.Println("没有返回值")
 	}, "鸡蛋")
 }
+
+func TestFuncSlice(t *testing.T) {
+	obs := NewObserver()
+	obs.SubscribeByTopicFunc("func_arg_slice", func(a string, b ...int) {
+		fmt.Println(a, b)
+	})
+	obs.Publish("func_arg_slice", "axing", 1, 2, 3, 4, 5)
+	obs.Wait()
+}

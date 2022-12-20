@@ -170,3 +170,33 @@ func TestStruct(t *testing.T) {
 	}{})
 	obs.Wait()
 }
+
+type structV2 struct {
+	event string `notice:"Handler"`
+	Name  string
+}
+
+func (s *structV2) Topic() string {
+	return "structV2"
+}
+
+func (s *structV2) Handler() {
+	fmt.Println(s.Name)
+}
+
+func TestStructV2(t *testing.T) {
+	obs := NewObserver()
+
+	// Topic
+	obs.Subscribe(&structV2{Name: "小明"})
+	obs.SubscribeByTopicFunc("structV2", func() {
+		fmt.Println("topic-func 执行了")
+	})
+	obs.SubscribeByTopicFunc("structV2", func() {
+		fmt.Println("topic-func 执行了 - 1")
+	})
+
+	obs.Publish("structV2")
+	obs.SyncPublish("structV2")
+	obs.Wait()
+}

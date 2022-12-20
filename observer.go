@@ -130,7 +130,7 @@ func (o *observer) PublishWithRet(topic string, retfc interface{}, args ...inter
 }
 
 func (o *observer) SyncPublish(topic string, args ...interface{}) {
-	o.publish(false, topic, nil, args...)
+	o.publish(true, topic, nil, args...)
 }
 
 func (o *observer) SyncPublishWithRet(topic string, retfc interface{}, args ...interface{}) {

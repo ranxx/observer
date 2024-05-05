@@ -10,9 +10,9 @@ const (
 )
 
 // Observer 观察者 模式
-type Observer interface {
+type Observer[E any] interface {
 	Subscriber
-	Publisher
+	Publisher[E]
 	Wait()
 }
 
@@ -50,22 +50,22 @@ type Subscriber interface {
 }
 
 // Publisher 发布者
-type Publisher interface {
+type Publisher[E any] interface {
 	// 异步推送
-	Publish(topic string, args ...interface{})
+	Publish(topic string, extra E, args ...interface{})
 
 	// 异步推送,监听返回值
 	//
 	// @params: retfc 其参数类型和顺序与消费者保持一致, 如没有返回值可为空
-	PublishWithRet(topic string, retfc interface{}, args ...interface{})
+	PublishWithRet(topic string, extra E, retfc interface{}, args ...interface{})
 
 	// 同步推送
-	SyncPublish(topic string, args ...interface{})
+	SyncPublish(topic string, extra E, args ...interface{})
 
 	// 同步推送,监听返回值
 	//
 	// @params: retfc 其参数类型和顺序与消费者保持一致, 如没有返回值可为空
-	SyncPublishWithRet(topic string, retfc interface{}, args ...interface{})
+	SyncPublishWithRet(topic string, extra E, retfc interface{}, args ...interface{})
 }
 
 // Topic 主题名
@@ -78,23 +78,29 @@ type Function interface {
 	Function() string
 }
 
-type observer struct {
+type observer[E any] struct {
 	handler *syncHandler
 	wait    sync.WaitGroup
+	opt     *Options[E]
 }
 
 // NewObserver Observer
-func NewObserver() Observer {
-	return &observer{
+func NewObserver[E any](opts ...Option[E]) Observer[E] {
+	opt := _defaultOpt[E]()
+	for _, v := range opts {
+		v(opt)
+	}
+	return &observer[E]{
 		handler: &syncHandler{
 			rwlock: new(sync.RWMutex),
 			m:      map[string]handlers{},
 		},
+		opt: opt,
 	}
 }
 
-func (o *observer) Subscribe(observer interface{}) func() {
-	t, topic, fc := checkObserver(observer, event)
+func (o *observer[E]) Subscribe(observer interface{}) func() {
+	t, topic, fc := checkObserver(observer, o.opt.eventField)
 
 	h := newHandler(t, observer, fc)
 
@@ -104,13 +110,13 @@ func (o *observer) Subscribe(observer interface{}) func() {
 	}
 }
 
-func (o *observer) Unsubscribe(observer interface{}) {
-	t, topic, fc := checkObserver(observer, event)
+// func (o *observer[E]) Unsubscribe(observer interface{}) {
+// 	t, topic, fc := checkObserver(observer, event)
 
-	o.handler.Del(topic, newHandler(t, observer, fc))
-}
+// 	o.handler.Del(topic, newHandler(t, observer, fc))
+// }
 
-func (o *observer) SubscribeByTopicFunc(topic string, fc interface{}) func() {
+func (o *observer[E]) SubscribeByTopicFunc(topic string, fc interface{}) func() {
 	t, v := checkFunc(fc)
 
 	h := newHandler(t, fc, v)
@@ -121,23 +127,23 @@ func (o *observer) SubscribeByTopicFunc(topic string, fc interface{}) func() {
 	}
 }
 
-func (o *observer) Publish(topic string, args ...interface{}) {
-	o.publish(false, topic, nil, args...)
+func (o *observer[E]) Publish(topic string, extra E, args ...interface{}) {
+	o.publish(false, topic, extra, nil, args...)
 }
 
-func (o *observer) PublishWithRet(topic string, retfc interface{}, args ...interface{}) {
-	o.publish(false, topic, retfc, args...)
+func (o *observer[E]) PublishWithRet(topic string, extra E, retfc interface{}, args ...interface{}) {
+	o.publish(false, topic, extra, retfc, args...)
 }
 
-func (o *observer) SyncPublish(topic string, args ...interface{}) {
-	o.publish(true, topic, nil, args...)
+func (o *observer[E]) SyncPublish(topic string, extra E, args ...interface{}) {
+	o.publish(true, topic, extra, nil, args...)
 }
 
-func (o *observer) SyncPublishWithRet(topic string, retfc interface{}, args ...interface{}) {
-	o.publish(true, topic, retfc, args...)
+func (o *observer[E]) SyncPublishWithRet(topic string, extra E, retfc interface{}, args ...interface{}) {
+	o.publish(true, topic, extra, retfc, args...)
 }
 
-func (o *observer) publish(sync bool, topic string, retfc interface{}, args ...interface{}) {
+func (o *observer[E]) publish(sync bool, topic string, extra E, retfc interface{}, args ...interface{}) {
 	fc := reflect.Zero(reflect.TypeOf(0))
 	if retfc != nil {
 		_, fc = checkFunc(retfc)
@@ -151,13 +157,15 @@ func (o *observer) publish(sync bool, topic string, retfc interface{}, args ...i
 	}
 
 	for _, handler := range handlers {
-		o.onNotice(sync, handler, fc, params)
+		o.onNotice(sync, topic, extra, handler, fc, params, args)
 	}
 }
 
-func (o *observer) onNotice(sync bool, handler *handler, fc reflect.Value, params []reflect.Value) {
+func (o *observer[E]) onNotice(sync bool, topic string, extra E, handler *handler, fc reflect.Value, params []reflect.Value, args ...interface{}) {
 	h := func() {
+		defer o.opt.recover(topic, extra, handler.callback, args)
 		defer o.wait.Done()
+
 		ret := handler.Call(params...)
 		if !fc.IsZero() {
 			fc.Call(ret)
@@ -165,12 +173,12 @@ func (o *observer) onNotice(sync bool, handler *handler, fc reflect.Value, param
 	}
 	o.wait.Add(1)
 	if sync {
-		h()
+		o.opt.syncExec(topic, extra, h)
 		return
 	}
-	go h()
+	o.opt.asyncExec(topic, extra, h)
 }
 
-func (o *observer) Wait() {
+func (o *observer[E]) Wait() {
 	o.wait.Wait()
 }

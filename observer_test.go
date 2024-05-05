@@ -25,20 +25,20 @@ func TestCheckObserver(t *testing.T) {
 }
 
 func TestSubscribe(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[interface{}]()
 	obs.Subscribe(&my{})
 	obs.Subscribe(&my{})
-	obs.Publish("xxx", "Axing", 1000)
+	obs.Publish("xxx", nil, "Axing", 1000)
 	obs.Wait()
 }
 
 func TestUnsubscribe(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[int64]()
 	cancel := obs.Subscribe(&my{name: "小明"})
 	_ = obs.Subscribe(&my{name: "小红"})
 	_ = obs.Subscribe(&my{name: "小刚"})
 	cancel()
-	obs.Publish("xxx", "", 1000)
+	obs.Publish("xxx", 0, "", 1000)
 	obs.Wait()
 }
 
@@ -55,11 +55,11 @@ func (p *person) Say(name string) {
 }
 
 func TestObserver(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[int64]()
 	obs.Subscribe(&my{})
 	obs.Subscribe(&person{})
-	obs.Publish("xxx", "Axing", 1000)
-	obs.Publish("pain", "小明")
+	obs.Publish("xxx", 0, "Axing", 1000)
+	obs.Publish("pain", 2, "小明")
 	obs.Wait()
 }
 
@@ -69,7 +69,7 @@ func topicFunc(fc interface{}) {
 }
 
 func TestFunc(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[int64]()
 	obs.Subscribe(&my{})
 	obs.Subscribe(&person{})
 	obs.SubscribeByTopicFunc("topic_func", func(v interface{}) {
@@ -81,16 +81,16 @@ func TestFunc(t *testing.T) {
 	obs.SubscribeByTopicFunc("topic_func1", func(v interface{}, name string, age int) {
 		fmt.Println("两个个", v, name, age)
 	})
-	obs.Publish("xxx", "Axing", 1000)
-	obs.Publish("pain", "小明")
-	obs.Publish("topic_func", &my{})
-	obs.Publish("topic_func", &person{})
-	obs.Publish("topic_func1", &person{}, "ainxg", 24)
+	obs.Publish("xxx", 0, "Axing", 1000)
+	obs.Publish("pain", 1, "小明")
+	obs.Publish("topic_func", 2, &my{})
+	obs.Publish("topic_func", 3, &person{})
+	obs.Publish("topic_func1", 4, &person{}, "ainxg", 24)
 	obs.Wait()
 }
 
 func TestPublishWithRet(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[string]()
 	obs.SubscribeByTopicFunc("topic_func_1_ret", func(v interface{}) (string, error) {
 		fmt.Println("一个", v)
 		return "第一个", fmt.Errorf("一个错误")
@@ -100,7 +100,7 @@ func TestPublishWithRet(t *testing.T) {
 		return "第二个", nil
 	})
 
-	obs.PublishWithRet("topic_func_1_ret", func(v string, e error) {
+	obs.PublishWithRet("topic_func_1_ret", "1", func(v string, e error) {
 		if e != nil {
 			fmt.Println("返回报错", e)
 			return
@@ -111,7 +111,7 @@ func TestPublishWithRet(t *testing.T) {
 }
 
 func TestSyncPublish(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[int64]()
 	obs.SubscribeByTopicFunc("sync_topic_func_ret_1", func(v interface{}) (string, error) {
 		fmt.Println("一个", v)
 		return "第一个", fmt.Errorf("一个错误")
@@ -121,11 +121,11 @@ func TestSyncPublish(t *testing.T) {
 		return "第二个", nil
 	})
 
-	obs.SyncPublish("sync_topic_func_ret_1", "鸡蛋")
+	obs.SyncPublish("sync_topic_func_ret_1", 1, "鸡蛋")
 }
 
 func TestSyncPublishWithRet(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[int64]()
 	obs.SubscribeByTopicFunc("sync_topic_func_ret_1", func(v interface{}) (string, error) {
 		fmt.Println("一个", v)
 		return "第一个", fmt.Errorf("一个错误")
@@ -140,7 +140,7 @@ func TestSyncPublishWithRet(t *testing.T) {
 		fmt.Println("第三个")
 	})
 
-	obs.SyncPublishWithRet("sync_topic_func_ret_1", func(v string, err error) {
+	obs.SyncPublishWithRet("sync_topic_func_ret_1", 1, func(v string, err error) {
 		if err != nil {
 			fmt.Println("返回报错", err)
 			return
@@ -149,22 +149,22 @@ func TestSyncPublishWithRet(t *testing.T) {
 
 	}, "鸡蛋")
 
-	obs.SyncPublishWithRet("sync_topis_func_ret_2", func() {
+	obs.SyncPublishWithRet("sync_topis_func_ret_2", 1, func() {
 		fmt.Println("没有返回值")
 	}, "鸡蛋")
 }
 
 func TestFuncSlice(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[string]()
 	obs.SubscribeByTopicFunc("func_arg_slice", func(a string, b ...int) {
 		fmt.Println(a, b)
 	})
-	obs.Publish("func_arg_slice", "axing", 1, 2, 3, 4, 5)
+	obs.Publish("func_arg_slice", "axing-extra", "axing", 1, 2, 3, 4, 5)
 	obs.Wait()
 }
 
 func TestStruct(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[string]()
 	obs.Subscribe(struct {
 		event string `topic:"topic"`
 	}{})
@@ -185,7 +185,7 @@ func (s *structV2) Handler() {
 }
 
 func TestStructV2(t *testing.T) {
-	obs := NewObserver()
+	obs := NewObserver[string]()
 
 	// Topic
 	obs.Subscribe(&structV2{Name: "小明"})
@@ -196,7 +196,32 @@ func TestStructV2(t *testing.T) {
 		fmt.Println("topic-func 执行了 - 1")
 	})
 
-	obs.Publish("structV2")
-	obs.SyncPublish("structV2")
+	obs.Publish("structV2", "ssss")
+	obs.SyncPublish("structV2", "aaaa")
+	obs.Wait()
+}
+
+func TestStructV3(t *testing.T) {
+	obs := NewObserver(WithSyncExec(func(topic string, extra string, fn func()) {
+		fmt.Println(topic, extra, "开始执行")
+		fn()
+		fmt.Println(topic, extra, "执行完毕")
+	}), WithAsyncExec(func(topic string, extra string, fn func()) {
+		fmt.Println(topic, extra, "开始执行")
+		fn()
+		fmt.Println(topic, extra, "执行完毕")
+	}))
+
+	// Topic
+	obs.Subscribe(&structV2{Name: "小明"})
+	obs.SubscribeByTopicFunc("structV2", func() {
+		fmt.Println("topic-func 执行了")
+	})
+	obs.SubscribeByTopicFunc("structV2", func() {
+		fmt.Println("topic-func 执行了 - 1")
+	})
+
+	obs.Publish("structV2", "ssss")
+	obs.SyncPublish("structV2", "aaaa")
 	obs.Wait()
 }
